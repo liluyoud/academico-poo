@@ -18,6 +18,7 @@ if (app.Environment.IsDevelopment())
     app.MapScalarApiReference(); 
 }
 
+app.MapTesteEndpoints();
 app.MapAcademicoEndpoints();
 
 app.Run();

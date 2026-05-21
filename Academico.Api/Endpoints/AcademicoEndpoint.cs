@@ -7,29 +7,9 @@ public static class AcademicoEndpoint
 {
     public static void MapAcademicoEndpoints(this IEndpointRouteBuilder routes)
     {
-        var group = routes.MapGroup("/testes").WithTags("Testes");
+        var group = routes.MapGroup("/cursos").WithTags("Cursos");
 
-        group.MapGet("/aloapi", async () =>
-        {
-            return Results.Ok("Alo API WEB");
-        });
-
-        group.MapGet("/nome", async () =>
-        {
-            return Results.Ok("Meu nome é Lilo");
-        });
-
-        group.MapGet("/idade", async () =>
-        {
-            return Results.Ok("Tenho 52 anos");
-        });
-
-        group.MapGet("/endereco", async () =>
-        {
-            return Results.Ok("Moro em Porto Velho");
-        });
-
-        group.MapGet("/cursos", async (AcademicoContext context) =>
+        group.MapGet("/", async (AcademicoContext context) =>
         {
             var cursos = await context.Cursos.ToListAsync();
             return Results.Ok(cursos);
