@@ -1,0 +1,190 @@
+@page "/cursos/novo"
+@page "/cursos/editar/{id:int}"
+@using Academico.Shared.Entities
+@using Academico.Shared.Services
+@inject ICursoService CursoService
+@inject IProfessorService ProfessorService
+@inject NavigationManager Navigation
+
+<div class="premium-container fade-in-up">
+    <div class="header-banner">
+        <h1><i class="bi bi-journal-bookmark-fill"></i> @Title</h1>
+        <p>Preencha as informações para gerenciar o curso.</p>
+    </div>
+
+    @if (errorMsg is not null)
+    {
+        <div class="alert alert-danger d-flex align-items-center justify-content-between" role="alert">
+            <div>
+                <i class="bi bi-exclamation-triangle-fill me-2"></i> @errorMsg
+            </div>
+            <button type="button" class="btn-close" @onclick="() => errorMsg = null"></button>
+        </div>
+    }
+
+    <div class="card-premium">
+        @if (curso is null || professores is null)
+        {
+            <div class="d-flex justify-content-center my-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+            </div>
+        }
+        else
+        {
+            <EditForm Model="curso" OnValidSubmit="Salvar" FormName="CursoForm">
+                <DataAnnotationsValidator />
+
+                <div class="row">
+                    <div class="col-md-8">
+                        <div class="form-group-premium">
+                            <label class="form-label-premium" for="nome">Nome do Curso</label>
+                            <InputText id="nome" class="form-control-premium" @bind-Value="curso.Nome" placeholder="Ex: Bacharelado em Sistemas de Informação" />
+                            <ValidationMessage For="() => curso.Nome" class="validation-message" />
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group-premium">
+                            <label class="form-label-premium" for="sigla">Sigla / Abreviação</label>
+                            <InputText id="sigla" class="form-control-premium" @bind-Value="curso.Sigla" placeholder="Ex: BSI" />
+                            <ValidationMessage For="() => curso.Sigla" class="validation-message" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group-premium">
+                            <label class="form-label-premium" for="cargaHoraria">Carga Horária Total (Horas)</label>
+                            <InputNumber id="cargaHoraria" class="form-control-premium" @bind-Value="curso.CargaHoraria" min="1" placeholder="Ex: 3200" />
+                            <ValidationMessage For="() => curso.CargaHoraria" class="validation-message" />
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group-premium">
+                            <label class="form-label-premium" for="coordenador">Coordenador do Curso</label>
+                            <InputSelect id="coordenador" class="form-control-premium" @bind-Value="curso.IdCoordenador">
+                                <option value="0">Selecione um professor...</option>
+                                @foreach (var prof in professores)
+                                {
+                                    <option value="@prof.Id">@prof.Nome (@prof.Titulacao)</option>
+                                }
+                            </InputSelect>
+                            @if (curso.IdCoordenador == 0)
+                            {
+                                <div class="text-danger small mt-1">Por favor, selecione um professor coordenador.</div>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-end gap-3 mt-4">
+                    <button type="button" class="btn-premium btn-premium-secondary" @onclick="Voltar">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="btn-premium btn-premium-primary" disabled="@(curso.IdCoordenador == 0)">
+                        <i class="bi bi-save"></i> Salvar
+                    </button>
+                </div>
+            </EditForm>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public int? Id { get; set; }
+
+    private Curso? curso;
+    private List<Professor>? professores;
+    private string Title => Id.HasValue ? "Editar Curso" : "Novo Curso";
+    private string? errorMsg;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            professores = await ProfessorService.GetAllAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMsg = $"Erro ao carregar professores: {ex.Message}";
+            professores = [];
+        }
+
+        if (Id.HasValue)
+        {
+            try
+            {
+                var existing = await CursoService.GetByIdAsync(Id.Value);
+                if (existing is null)
+                {
+                    errorMsg = "Curso não encontrado.";
+                    curso = new Curso { Nome = "", Sigla = "" };
+                }
+                else
+                {
+                    curso = existing;
+                }
+            }
+            catch (Exception ex)
+            {
+                errorMsg = $"Erro ao carregar curso: {ex.Message}";
+            }
+        }
+        else
+        {
+            curso = new Curso
+            {
+                Nome = "",
+                Sigla = "",
+                CargaHoraria = 3000,
+                IdCoordenador = 0
+            };
+        }
+    }
+
+    private async Task Salvar()
+    {
+        if (curso is null) return;
+        if (curso.IdCoordenador == 0) return; // Coordenador é obrigatório no BD
+
+        try
+        {
+            if (Id.HasValue)
+            {
+                var success = await CursoService.UpdateAsync(Id.Value, curso);
+                if (success)
+                {
+                    Navigation.NavigateTo("cursos");
+                }
+                else
+                {
+                    errorMsg = "Erro ao atualizar curso. Verifique se a sigla já está em uso.";
+                }
+            }
+            else
+            {
+                var created = await CursoService.CreateAsync(curso);
+                if (created is not null)
+                {
+                    Navigation.NavigateTo("cursos");
+                }
+                else
+                {
+                    errorMsg = "Erro ao cadastrar curso.";
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMsg = $"Erro ao salvar curso: {ex.Message}";
+        }
+    }
+
+    private void Voltar()
+    {
+        Navigation.NavigateTo("cursos");
+    }
+}

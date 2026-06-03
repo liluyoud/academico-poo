@@ -1,0 +1,210 @@
+@page "/alunos/novo"
+@page "/alunos/editar/{id:int}"
+@using Academico.Shared.Entities
+@using Academico.Shared.Services
+@inject IAlunoService AlunoService
+@inject ICursoService CursoService
+@inject NavigationManager Navigation
+
+<div class="premium-container fade-in-up">
+    <div class="header-banner">
+        <h1><i class="bi bi-people-fill"></i> @Title</h1>
+        <p>Preencha as informações cadastrais do estudante.</p>
+    </div>
+
+    @if (errorMsg is not null)
+    {
+        <div class="alert alert-danger d-flex align-items-center justify-content-between" role="alert">
+            <div>
+                <i class="bi bi-exclamation-triangle-fill me-2"></i> @errorMsg
+            </div>
+            <button type="button" class="btn-close" @onclick="() => errorMsg = null"></button>
+        </div>
+    }
+
+    <div class="card-premium">
+        @if (aluno is null || cursos is null)
+        {
+            <div class="d-flex justify-content-center my-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+            </div>
+        }
+        else
+        {
+            <EditForm Model="aluno" OnValidSubmit="Salvar" FormName="AlunoForm">
+                <DataAnnotationsValidator />
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group-premium">
+                            <label class="form-label-premium" for="nome">Nome Completo</label>
+                            <InputText id="nome" class="form-control-premium" @bind-Value="aluno.Nome" placeholder="Ex: Margaret Hamilton" />
+                            <ValidationMessage For="() => aluno.Nome" class="validation-message" />
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-group-premium">
+                            <label class="form-label-premium" for="cpf">CPF</label>
+                            <InputText id="cpf" class="form-control-premium" @bind-Value="aluno.Cpf" placeholder="Ex: 123.456.789-00" />
+                            <ValidationMessage For="() => aluno.Cpf" class="validation-message" />
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-group-premium">
+                            <label class="form-label-premium" for="dataNasc">Data de Nascimento</label>
+                            <InputDate id="dataNasc" class="form-control-premium" @bind-Value="aluno.DataNascimento" />
+                            <ValidationMessage For="() => aluno.DataNascimento" class="validation-message" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group-premium">
+                            <label class="form-label-premium" for="email">E-mail Pessoal / Acadêmico</label>
+                            <InputText id="email" type="email" class="form-control-premium" @bind-Value="aluno.Email" placeholder="Ex: margaret@nasa.gov" />
+                            <ValidationMessage For="() => aluno.Email" class="validation-message" />
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group-premium">
+                            <label class="form-label-premium" for="curso">Curso</label>
+                            <InputSelect id="curso" class="form-control-premium" @bind-Value="aluno.IdCurso">
+                                <option value="0">Selecione um curso...</option>
+                                @foreach (var c in cursos)
+                                {
+                                    <option value="@c.Id">@c.Sigla - @c.Nome</option>
+                                }
+                            </InputSelect>
+                            @if (aluno.IdCurso == 0)
+                            {
+                                <div class="text-danger small mt-1">Por favor, selecione um curso.</div>
+                            }
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="form-group-premium">
+                            <label class="form-label-premium" for="status">Situação</label>
+                            <InputSelect id="status" class="form-control-premium" @bind-Value="aluno.StatusAluno">
+                                <option value="Ativo">Ativo</option>
+                                <option value="Trancado">Trancado</option>
+                                <option value="Inativo">Inativo</option>
+                            </InputSelect>
+                            <ValidationMessage For="() => aluno.StatusAluno" class="validation-message" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-end gap-3 mt-4">
+                    <button type="button" class="btn-premium btn-premium-secondary" @onclick="Voltar">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="btn-premium btn-premium-primary" disabled="@(aluno.IdCurso == 0)">
+                        <i class="bi bi-save"></i> Salvar
+                    </button>
+                </div>
+            </EditForm>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public int? Id { get; set; }
+
+    private Aluno? aluno;
+    private List<Curso>? cursos;
+    private string Title => Id.HasValue ? "Editar Aluno" : "Novo Aluno";
+    private string? errorMsg;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            cursos = await CursoService.GetAllAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMsg = $"Erro ao carregar cursos: {ex.Message}";
+            cursos = [];
+        }
+
+        if (Id.HasValue)
+        {
+            try
+            {
+                var existing = await AlunoService.GetByIdAsync(Id.Value);
+                if (existing is null)
+                {
+                    errorMsg = "Aluno não encontrado.";
+                    aluno = new Aluno { Nome = "", Cpf = "", Email = "" };
+                }
+                else
+                {
+                    aluno = existing;
+                }
+            }
+            catch (Exception ex)
+            {
+                errorMsg = $"Erro ao carregar aluno: {ex.Message}";
+            }
+        }
+        else
+        {
+            aluno = new Aluno
+            {
+                Nome = "",
+                Cpf = "",
+                Email = "",
+                DataNascimento = DateOnly.FromDateTime(DateTime.Today.AddYears(-20)),
+                IdCurso = 0,
+                StatusAluno = "Ativo"
+            };
+        }
+    }
+
+    private async Task Salvar()
+    {
+        if (aluno is null) return;
+        if (aluno.IdCurso == 0) return;
+
+        try
+        {
+            if (Id.HasValue)
+            {
+                var success = await AlunoService.UpdateAsync(Id.Value, aluno);
+                if (success)
+                {
+                    Navigation.NavigateTo("alunos");
+                }
+                else
+                {
+                    errorMsg = "Erro ao atualizar aluno. Verifique se o CPF ou E-mail já estão cadastrados.";
+                }
+            }
+            else
+            {
+                var created = await AlunoService.CreateAsync(aluno);
+                if (created is not null)
+                {
+                    Navigation.NavigateTo("alunos");
+                }
+                else
+                {
+                    errorMsg = "Erro ao cadastrar aluno.";
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMsg = $"Erro ao salvar aluno: {ex.Message}";
+        }
+    }
+
+    private void Voltar()
+    {
+        Navigation.NavigateTo("alunos");
+    }
+}

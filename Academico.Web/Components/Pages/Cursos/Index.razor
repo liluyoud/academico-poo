@@ -1,0 +1,272 @@
+@page "/cursos"
+@using Academico.Shared.Entities
+@using Academico.Shared.Services
+@inject ICursoService CursoService
+@inject NavigationManager Navigation
+
+<div class="premium-container fade-in-up">
+    <div class="header-banner">
+        <h1><i class="bi bi-journal-bookmark-fill"></i> Cursos</h1>
+        <p>Gerencie a oferta de cursos de graduação e pós-graduação.</p>
+    </div>
+
+    @if (errorMsg is not null)
+    {
+        <div class="alert alert-danger d-flex align-items-center justify-content-between" role="alert">
+            <div>
+                <i class="bi bi-exclamation-triangle-fill me-2"></i> @errorMsg
+            </div>
+            <button type="button" class="btn-close" @onclick="() => errorMsg = null"></button>
+        </div>
+    }
+
+    @if (successMsg is not null)
+    {
+        <div class="alert alert-success d-flex align-items-center justify-content-between" role="alert">
+            <div>
+                <i class="bi bi-check-circle-fill me-2"></i> @successMsg
+            </div>
+            <button type="button" class="btn-close" @onclick="() => successMsg = null"></button>
+        </div>
+    }
+
+    <div class="card-premium">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h2 class="card-title-premium m-0 border-0 pb-0">Cursos Cadastrados</h2>
+            <a class="btn-premium btn-premium-primary" href="cursos/novo">
+                <i class="bi bi-plus-circle"></i> Novo Curso
+            </a>
+        </div>
+
+        @if (cursos is null)
+        {
+            <div class="d-flex justify-content-center my-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+            </div>
+        }
+        else if (cursos.Count == 0)
+        {
+            <div class="text-center py-5">
+                <i class="bi bi-journal-x text-muted" style="font-size: 3rem;"></i>
+                <p class="mt-3 text-muted">Nenhum curso cadastrado no momento.</p>
+            </div>
+        }
+        else
+        {
+            <div class="row mb-3">
+                <div class="col-md-6 col-lg-4">
+                    <div class="input-group">
+                        <span class="input-group-text bg-white text-muted"><i class="bi bi-search"></i></span>
+                        <input type="text" class="form-control" placeholder="Buscar por curso, sigla ou coordenador..." 
+                               value="@searchTerm" @oninput="OnSearchInput" />
+                    </div>
+                </div>
+            </div>
+
+            @if (FilteredCursos.Count == 0)
+            {
+                <div class="text-center py-4">
+                    <p class="text-muted">Nenhum resultado encontrado para a busca "@searchTerm".</p>
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive-custom">
+                    <table class="table table-custom">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Sigla</th>
+                                <th>Nome do Curso</th>
+                                <th>Carga Horária</th>
+                                <th>Coordenador</th>
+                                <th class="text-end">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var curso in PaginatedCursos)
+                            {
+                                <tr>
+                                    <td>@curso.Id</td>
+                                    <td>
+                                        <span class="badge-custom badge-info fw-bold">@curso.Sigla</span>
+                                    </td>
+                                    <td class="fw-semibold">@curso.Nome</td>
+                                    <td>@curso.CargaHoraria h</td>
+                                    <td>
+                                        <i class="bi bi-person-badge text-muted me-1"></i>
+                                        @(curso.Coordenador?.Nome ?? "Não alocado")
+                                    </td>
+                                    <td class="text-end">
+                                        <button class="btn-premium btn-premium-secondary btn-action" 
+                                                @onclick="() => Editar(curso.Id)" title="Editar">
+                                            <i class="bi bi-pencil-fill"></i>
+                                        </button>
+                                        <button class="btn-premium btn-premium-danger btn-action" 
+                                                @onclick="() => ConfirmarExclusao(curso)" title="Excluir">
+                                            <i class="bi bi-trash-fill"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination Controls -->
+                <div class="d-flex justify-content-between align-items-center mt-3 flex-wrap gap-2">
+                    <div class="text-muted small">
+                        Exibindo de @(((currentPage - 1) * pageSize) + 1) a @(Math.Min(currentPage * pageSize, FilteredCursos.Count)) de @FilteredCursos.Count registros
+                    </div>
+                    @if (TotalPages > 1)
+                    {
+                        <nav aria-label="Navegação de página">
+                            <ul class="pagination pagination-sm m-0">
+                                <li class="page-item @(currentPage == 1 ? "disabled" : "")">
+                                    <button class="page-link" @onclick="() => MudarPagina(currentPage - 1)">Anterior</button>
+                                </li>
+                                @for (int i = 1; i <= TotalPages; i++)
+                                {
+                                    var pageNumber = i;
+                                    <li class="page-item @(currentPage == pageNumber ? "active" : "")">
+                                        <button class="page-link" @onclick="() => MudarPagina(pageNumber)">@pageNumber</button>
+                                    </li>
+                                }
+                                <li class="page-item @(currentPage == TotalPages ? "disabled" : "")">
+                                    <button class="page-link" @onclick="() => MudarPagina(currentPage + 1)">Próximo</button>
+                                </li>
+                            </ul>
+                        </nav>
+                    }
+                </div>
+            }
+        }
+    </div>
+</div>
+
+@if (confirmDeleteCurso is not null)
+{
+    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content card-premium p-0 border-0 overflow-hidden">
+                <div class="modal-header bg-danger text-white border-0 py-3">
+                    <h5 class="modal-title"><i class="bi bi-exclamation-triangle"></i> Confirmar Exclusão</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CancelarExclusao"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <p>Você tem certeza que deseja excluir o curso <strong>@confirmDeleteCurso.Nome (@confirmDeleteCurso.Sigla)</strong>?</p>
+                    <p class="text-muted small">Esta ação excluirá permanentemente o curso. Ela falhará caso existam alunos ou disciplinas vinculadas a ele.</p>
+                </div>
+                <div class="modal-footer border-0 p-4 pt-0">
+                    <button type="button" class="btn-premium btn-premium-secondary" @onclick="CancelarExclusao">Cancelar</button>
+                    <button type="button" class="btn-premium btn-premium-danger" @onclick="Excluir">Excluir</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<Curso>? cursos;
+    private Curso? confirmDeleteCurso;
+    private string? errorMsg;
+    private string? successMsg;
+
+    // Search and Pagination fields
+    private string searchTerm = "";
+    private int currentPage = 1;
+    private const int pageSize = 6;
+
+    private List<Curso> FilteredCursos => cursos?
+        .Where(c => string.IsNullOrWhiteSpace(searchTerm) || 
+                    c.Nome.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) || 
+                    c.Sigla.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                    (c.Coordenador != null && c.Coordenador.Nome.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)))
+        .ToList() ?? [];
+
+    private List<Curso> PaginatedCursos => FilteredCursos
+        .Skip((currentPage - 1) * pageSize)
+        .Take(pageSize)
+        .ToList();
+
+    private int TotalPages => (int)Math.Ceiling((double)FilteredCursos.Count / pageSize);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CarregarCursos();
+    }
+
+    private async Task CarregarCursos()
+    {
+        try
+        {
+            cursos = await CursoService.GetAllAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMsg = $"Erro ao carregar cursos: {ex.Message}";
+        }
+    }
+
+    private void Editar(int id)
+    {
+        Navigation.NavigateTo($"cursos/editar/{id}");
+    }
+
+    private void ConfirmarExclusao(Curso curso)
+    {
+        confirmDeleteCurso = curso;
+    }
+
+    private void CancelarExclusao()
+    {
+        confirmDeleteCurso = null;
+    }
+
+    private async Task Excluir()
+    {
+        if (confirmDeleteCurso is null) return;
+
+        try
+        {
+            var success = await CursoService.DeleteAsync(confirmDeleteCurso.Id);
+            if (success)
+            {
+                successMsg = $"Curso '{confirmDeleteCurso.Nome}' excluído com sucesso!";
+                await CarregarCursos();
+                if (currentPage > TotalPages && currentPage > 1)
+                {
+                    currentPage = TotalPages;
+                }
+            }
+            else
+            {
+                errorMsg = "Não foi possível excluir o curso. Verifique se existem alunos ou disciplinas matriculados/vinculadas a ele.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMsg = $"Erro ao excluir curso: {ex.Message}";
+        }
+        finally
+        {
+            confirmDeleteCurso = null;
+        }
+    }
+
+    private void OnSearchInput(ChangeEventArgs e)
+    {
+        searchTerm = e.Value?.ToString() ?? "";
+        currentPage = 1;
+    }
+
+    private void MudarPagina(int novaPagina)
+    {
+        if (novaPagina >= 1 && novaPagina <= TotalPages)
+        {
+            currentPage = novaPagina;
+        }
+    }
+}

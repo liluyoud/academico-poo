@@ -1,0 +1,270 @@
+@page "/matriculas/novo"
+@page "/matriculas/editar/{id:int}"
+@using Academico.Shared.Entities
+@using Academico.Shared.Services
+@inject IMatriculaService MatriculaService
+@inject IAlunoService AlunoService
+@inject IDisciplinaService DisciplinaService
+@inject NavigationManager Navigation
+
+<div class="premium-container fade-in-up">
+    <div class="header-banner">
+        <h1><i class="bi bi-card-checklist"></i> @Title</h1>
+        <p>Preencha as informações para matricular um estudante ou lançar sua nota final.</p>
+    </div>
+
+    @if (errorMsg is not null)
+    {
+        <div class="alert alert-danger d-flex align-items-center justify-content-between" role="alert">
+            <div>
+                <i class="bi bi-exclamation-triangle-fill me-2"></i> @errorMsg
+            </div>
+            <button type="button" class="btn-close" @onclick="() => errorMsg = null"></button>
+        </div>
+    }
+
+    <div class="card-premium">
+        @if (matricula is null || alunos is null || disciplinas is null)
+        {
+            <div class="d-flex justify-content-center my-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+            </div>
+        }
+        else
+        {
+            <EditForm Model="matricula" OnValidSubmit="Salvar" FormName="MatriculaForm">
+                <DataAnnotationsValidator />
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group-premium">
+                            <label class="form-label-premium" for="aluno">Estudante / Aluno</label>
+                            <InputSelect id="aluno" class="form-control-premium" @bind-Value="matricula.IdAluno" disabled="@Id.HasValue">
+                                <option value="0">Selecione um aluno...</option>
+                                @foreach (var a in alunos)
+                                {
+                                    <option value="@a.Id">@a.Nome (CPF: @a.Cpf)</option>
+                                }
+                            </InputSelect>
+                            @if (matricula.IdAluno == 0)
+                            {
+                                <div class="text-danger small mt-1">Por favor, selecione um estudante.</div>
+                            }
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group-premium">
+                            <label class="form-label-premium" for="disciplina">Disciplina Ofertada</label>
+                            <InputSelect id="disciplina" class="form-control-premium" @bind-Value="matricula.IdDisciplina" disabled="@Id.HasValue">
+                                <option value="0">Selecione uma disciplina...</option>
+                                @foreach (var d in disciplinas)
+                                {
+                                    <option value="@d.Id">@d.Curso?.Sigla - @d.Nome (@d.CargaHoraria h)</option>
+                                }
+                            </InputSelect>
+                            @if (matricula.IdDisciplina == 0)
+                            {
+                                <div class="text-danger small mt-1">Por favor, selecione uma disciplina.</div>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="form-group-premium">
+                            <label class="form-label-premium" for="dataMat">Data de Matrícula</label>
+                            <InputDate id="dataMat" Type="InputDateType.DateTimeLocal" class="form-control-premium" @bind-Value="matricula.DataMatricula" disabled="@(!Id.HasValue)" />
+                            <ValidationMessage For="() => matricula.DataMatricula" class="validation-message" />
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group-premium">
+                            <label class="form-label-premium" for="nota">Nota Final (0.00 a 10.00)</label>
+                            <input id="nota" type="number" step="0.01" min="0" max="10" 
+                                   class="form-control-premium" 
+                                   value="@matricula.NotaFinal" 
+                                   @onchange="OnNotaChanged" 
+                                   placeholder="Sem nota lançada (vazio)" />
+                            @if (notaInvalida)
+                            {
+                                <div class="text-danger small mt-1">A nota deve estar entre 0.0 e 10.0.</div>
+                            }
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group-premium">
+                            <label class="form-label-premium" for="status">Situação Acadêmica</label>
+                            <InputSelect id="status" class="form-control-premium" @bind-Value="matricula.StatusMatricula">
+                                <option value="Cursando">Cursando</option>
+                                <option value="Aprovado">Aprovado</option>
+                                <option value="Reprovado">Reprovado</option>
+                            </InputSelect>
+                            <ValidationMessage For="() => matricula.StatusMatricula" class="validation-message" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-end gap-3 mt-4">
+                    <button type="button" class="btn-premium btn-premium-secondary" @onclick="Voltar">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="btn-premium btn-premium-primary" disabled="@(matricula.IdAluno == 0 || matricula.IdDisciplina == 0 || notaInvalida)">
+                        <i class="bi bi-save"></i> Salvar
+                    </button>
+                </div>
+            </EditForm>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public int? Id { get; set; }
+
+    private Matricula? matricula;
+    private List<Aluno>? alunos;
+    private List<Disciplina>? disciplinas;
+    private string Title => Id.HasValue ? "Editar/Lançar Nota em Matrícula" : "Nova Matrícula";
+    private string? errorMsg;
+    private bool notaInvalida = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            alunos = await AlunoService.GetAllAsync();
+            // Filtrar apenas alunos ativos para novas matrículas
+            if (!Id.HasValue)
+            {
+                alunos = alunos.Where(a => a.StatusAluno == "Ativo").ToList();
+            }
+            disciplinas = await DisciplinaService.GetAllAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMsg = $"Erro ao carregar dados auxiliares: {ex.Message}";
+            alunos = [];
+            disciplinas = [];
+        }
+
+        if (Id.HasValue)
+        {
+            try
+            {
+                var existing = await MatriculaService.GetByIdAsync(Id.Value);
+                if (existing is null)
+                {
+                    errorMsg = "Matrícula não encontrada.";
+                    matricula = new Matricula();
+                }
+                else
+                {
+                    matricula = existing;
+                }
+            }
+            catch (Exception ex)
+            {
+                errorMsg = $"Erro ao carregar matrícula: {ex.Message}";
+            }
+        }
+        else
+        {
+            matricula = new Matricula
+            {
+                IdAluno = 0,
+                IdDisciplina = 0,
+                DataMatricula = DateTime.Now,
+                NotaFinal = null,
+                StatusMatricula = "Cursando"
+            };
+        }
+    }
+
+    private void OnNotaChanged(ChangeEventArgs e)
+    {
+        if (matricula is null) return;
+
+        var valStr = e.Value?.ToString();
+        if (string.IsNullOrWhiteSpace(valStr))
+        {
+            matricula.NotaFinal = null;
+            matricula.StatusMatricula = "Cursando";
+            notaInvalida = false;
+            return;
+        }
+
+        if (decimal.TryParse(valStr, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out decimal nota) ||
+            decimal.TryParse(valStr, out nota))
+        {
+            if (nota < 0 || nota > 10)
+            {
+                notaInvalida = true;
+                return;
+            }
+
+            notaInvalida = false;
+            matricula.NotaFinal = nota;
+
+            // Lógica inteligente: se nota >= 6.0 aprovado, senão reprovado
+            if (nota >= 6.0m)
+            {
+                matricula.StatusMatricula = "Aprovado";
+            }
+            else
+            {
+                matricula.StatusMatricula = "Reprovado";
+            }
+        }
+        else
+        {
+            notaInvalida = true;
+        }
+    }
+
+    private async Task Salvar()
+    {
+        if (matricula is null) return;
+        if (matricula.IdAluno == 0 || matricula.IdDisciplina == 0) return;
+        if (notaInvalida) return;
+
+        try
+        {
+            if (Id.HasValue)
+            {
+                var success = await MatriculaService.UpdateAsync(Id.Value, matricula);
+                if (success)
+                {
+                    Navigation.NavigateTo("matriculas");
+                }
+                else
+                {
+                    errorMsg = "Erro ao atualizar matrícula.";
+                }
+            }
+            else
+            {
+                var created = await MatriculaService.CreateAsync(matricula);
+                if (created is not null)
+                {
+                    Navigation.NavigateTo("matriculas");
+                }
+                else
+                {
+                    errorMsg = "Erro ao cadastrar matrícula. É possível que este aluno já esteja matriculado nesta disciplina.";
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMsg = $"Erro ao salvar matrícula: {ex.Message}";
+        }
+    }
+
+    private void Voltar()
+    {
+        Navigation.NavigateTo("matriculas");
+    }
+}

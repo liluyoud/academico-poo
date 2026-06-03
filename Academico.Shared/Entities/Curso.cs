@@ -23,4 +23,7 @@ public class Curso
 
     [Column("id_coordenador")]
     public int IdCoordenador { get; set; }
+
+    [ForeignKey(nameof(IdCoordenador))]
+    public Professor? Coordenador { get; set; }
 }

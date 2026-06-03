@@ -1,0 +1,279 @@
+@page "/disciplinas"
+@using Academico.Shared.Entities
+@using Academico.Shared.Services
+@inject IDisciplinaService DisciplinaService
+@inject NavigationManager Navigation
+
+<div class="premium-container fade-in-up">
+    <div class="header-banner">
+        <h1><i class="bi bi-book-half"></i> Disciplinas</h1>
+        <p>Gerencie as disciplinas e matérias ofertadas nos cursos.</p>
+    </div>
+
+    @if (errorMsg is not null)
+    {
+        <div class="alert alert-danger d-flex align-items-center justify-content-between" role="alert">
+            <div>
+                <i class="bi bi-exclamation-triangle-fill me-2"></i> @errorMsg
+            </div>
+            <button type="button" class="btn-close" @onclick="() => errorMsg = null"></button>
+        </div>
+    }
+
+    @if (successMsg is not null)
+    {
+        <div class="alert alert-success d-flex align-items-center justify-content-between" role="alert">
+            <div>
+                <i class="bi bi-check-circle-fill me-2"></i> @successMsg
+            </div>
+            <button type="button" class="btn-close" @onclick="() => successMsg = null"></button>
+        </div>
+    }
+
+    <div class="card-premium">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h2 class="card-title-premium m-0 border-0 pb-0">Disciplinas Cadastradas</h2>
+            <a class="btn-premium btn-premium-primary" href="disciplinas/novo">
+                <i class="bi bi-plus-circle"></i> Nova Disciplina
+            </a>
+        </div>
+
+        @if (disciplinas is null)
+        {
+            <div class="d-flex justify-content-center my-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+            </div>
+        }
+        else if (disciplinas.Count == 0)
+        {
+            <div class="text-center py-5">
+                <i class="bi bi-book-x text-muted" style="font-size: 3rem;"></i>
+                <p class="mt-3 text-muted">Nenhuma disciplina cadastrada no momento.</p>
+            </div>
+        }
+        else
+        {
+            <div class="row mb-3">
+                <div class="col-md-6 col-lg-4">
+                    <div class="input-group">
+                        <span class="input-group-text bg-white text-muted"><i class="bi bi-search"></i></span>
+                        <input type="text" class="form-control" placeholder="Buscar por disciplina, curso ou professor..." 
+                               value="@searchTerm" @oninput="OnSearchInput" />
+                    </div>
+                </div>
+            </div>
+
+            @if (FilteredDisciplinas.Count == 0)
+            {
+                <div class="text-center py-4">
+                    <p class="text-muted">Nenhum resultado encontrado para a busca "@searchTerm".</p>
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive-custom">
+                    <table class="table table-custom">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Disciplina</th>
+                                <th>Carga Horária</th>
+                                <th>Semestre</th>
+                                <th>Curso</th>
+                                <th>Professor Responsável</th>
+                                <th class="text-end">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var disc in PaginatedDisciplinas)
+                            {
+                                <tr>
+                                    <td>@disc.Id</td>
+                                    <td class="fw-semibold">@disc.Nome</td>
+                                    <td>@disc.CargaHoraria h</td>
+                                    <td>
+                                        <span class="badge-custom badge-warning">@(disc.SemestreOferta)º Sem</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge-custom badge-info font-monospace">@disc.Curso?.Sigla</span>
+                                        <span class="text-muted ms-1 small">(@disc.Curso?.Nome)</span>
+                                    </td>
+                                    <td>
+                                        <i class="bi bi-person-video3 text-muted me-1"></i>
+                                        @(disc.Professor?.Nome ?? "Não alocado")
+                                    </td>
+                                    <td class="text-end">
+                                        <button class="btn-premium btn-premium-secondary btn-action" 
+                                                @onclick="() => Editar(disc.Id)" title="Editar">
+                                            <i class="bi bi-pencil-fill"></i>
+                                        </button>
+                                        <button class="btn-premium btn-premium-danger btn-action" 
+                                                @onclick="() => ConfirmarExclusao(disc)" title="Excluir">
+                                            <i class="bi bi-trash-fill"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination Controls -->
+                <div class="d-flex justify-content-between align-items-center mt-3 flex-wrap gap-2">
+                    <div class="text-muted small">
+                        Exibindo de @(((currentPage - 1) * pageSize) + 1) a @(Math.Min(currentPage * pageSize, FilteredDisciplinas.Count)) de @FilteredDisciplinas.Count registros
+                    </div>
+                    @if (TotalPages > 1)
+                    {
+                        <nav aria-label="Navegação de página">
+                            <ul class="pagination pagination-sm m-0">
+                                <li class="page-item @(currentPage == 1 ? "disabled" : "")">
+                                    <button class="page-link" @onclick="() => MudarPagina(currentPage - 1)">Anterior</button>
+                                </li>
+                                @for (int i = 1; i <= TotalPages; i++)
+                                {
+                                    var pageNumber = i;
+                                    <li class="page-item @(currentPage == pageNumber ? "active" : "")">
+                                        <button class="page-link" @onclick="() => MudarPagina(pageNumber)">@pageNumber</button>
+                                    </li>
+                                }
+                                <li class="page-item @(currentPage == TotalPages ? "disabled" : "")">
+                                    <button class="page-link" @onclick="() => MudarPagina(currentPage + 1)">Próximo</button>
+                                </li>
+                            </ul>
+                        </nav>
+                    }
+                </div>
+            }
+        }
+    </div>
+</div>
+
+@if (confirmDeleteDisciplina is not null)
+{
+    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content card-premium p-0 border-0 overflow-hidden">
+                <div class="modal-header bg-danger text-white border-0 py-3">
+                    <h5 class="modal-title"><i class="bi bi-exclamation-triangle"></i> Confirmar Exclusão</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CancelarExclusao"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <p>Você tem certeza que deseja excluir a disciplina <strong>@confirmDeleteDisciplina.Nome</strong>?</p>
+                    <p class="text-muted small">Esta ação é permanente e falhará caso existam alunos matriculados nesta disciplina.</p>
+                </div>
+                <div class="modal-footer border-0 p-4 pt-0">
+                    <button type="button" class="btn-premium btn-premium-secondary" @onclick="CancelarExclusao">Cancelar</button>
+                    <button type="button" class="btn-premium btn-premium-danger" @onclick="Excluir">Excluir</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<Disciplina>? disciplinas;
+    private Disciplina? confirmDeleteDisciplina;
+    private string? errorMsg;
+    private string? successMsg;
+
+    // Search and Pagination fields
+    private string searchTerm = "";
+    private int currentPage = 1;
+    private const int pageSize = 6;
+
+    private List<Disciplina> FilteredDisciplinas => disciplinas?
+        .Where(d => string.IsNullOrWhiteSpace(searchTerm) || 
+                    d.Nome.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) || 
+                    (d.Curso != null && d.Curso.Nome.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)) ||
+                    (d.Curso != null && d.Curso.Sigla.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)) ||
+                    (d.Professor != null && d.Professor.Nome.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)) ||
+                    d.SemestreOferta.ToString() == searchTerm)
+        .ToList() ?? [];
+
+    private List<Disciplina> PaginatedDisciplinas => FilteredDisciplinas
+        .Skip((currentPage - 1) * pageSize)
+        .Take(pageSize)
+        .ToList();
+
+    private int TotalPages => (int)Math.Ceiling((double)FilteredDisciplinas.Count / pageSize);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CarregarDisciplinas();
+    }
+
+    private async Task CarregarDisciplinas()
+    {
+        try
+        {
+            disciplinas = await DisciplinaService.GetAllAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMsg = $"Erro ao carregar disciplinas: {ex.Message}";
+        }
+    }
+
+    private void Editar(int id)
+    {
+        Navigation.NavigateTo($"disciplinas/editar/{id}");
+    }
+
+    private void ConfirmarExclusao(Disciplina disc)
+    {
+        confirmDeleteDisciplina = disc;
+    }
+
+    private void CancelarExclusao()
+    {
+        confirmDeleteDisciplina = null;
+    }
+
+    private async Task Excluir()
+    {
+        if (confirmDeleteDisciplina is null) return;
+
+        try
+        {
+            var success = await DisciplinaService.DeleteAsync(confirmDeleteDisciplina.Id);
+            if (success)
+            {
+                successMsg = $"Disciplina '{confirmDeleteDisciplina.Nome}' excluída com sucesso!";
+                await CarregarDisciplinas();
+                if (currentPage > TotalPages && currentPage > 1)
+                {
+                    currentPage = TotalPages;
+                }
+            }
+            else
+            {
+                errorMsg = "Não foi possível excluir a disciplina. Certifique-se de que não existem matrículas vinculadas a ela.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMsg = $"Erro ao excluir disciplina: {ex.Message}";
+        }
+        finally
+        {
+            confirmDeleteDisciplina = null;
+        }
+    }
+
+    private void OnSearchInput(ChangeEventArgs e)
+    {
+        searchTerm = e.Value?.ToString() ?? "";
+        currentPage = 1;
+    }
+
+    private void MudarPagina(int novaPagina)
+    {
+        if (novaPagina >= 1 && novaPagina <= TotalPages)
+        {
+            currentPage = novaPagina;
+        }
+    }
+}

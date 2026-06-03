@@ -1,7 +1,163 @@
-﻿@page "/"
+@page "/"
+@using Academico.Shared.Services
+@inject IProfessorService ProfessorService
+@inject ICursoService CursoService
+@inject IDisciplinaService DisciplinaService
+@inject IAlunoService AlunoService
+@inject IMatriculaService MatriculaService
 
-<PageTitle>Home</PageTitle>
+<PageTitle>Acadêmico POO - Dashboard</PageTitle>
 
-<h1>Hello, world!</h1>
+<div class="premium-container fade-in-up">
+    <div class="header-banner">
+        <h1><i class="bi bi-mortarboard-fill"></i> Sistema de Gestão Acadêmica</h1>
+        <p>Bem-vindo ao portal de administração. Acompanhe os principais indicadores da instituição.</p>
+    </div>
 
-Welcome to your new app.
+    @if (carregando)
+    {
+        <div class="d-flex justify-content-center my-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Carregando indicadores...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        <!-- Metrics Grid -->
+        <div class="metrics-grid">
+            <a href="cursos" class="text-decoration-none">
+                <div class="metric-card">
+                    <div class="metric-icon metric-icon-blue">
+                        <i class="bi bi-journal-bookmark-fill"></i>
+                    </div>
+                    <div class="metric-info">
+                        <h3>Cursos</h3>
+                        <p>@cursosCount</p>
+                    </div>
+                </div>
+            </a>
+
+            <a href="professores" class="text-decoration-none">
+                <div class="metric-card">
+                    <div class="metric-icon metric-icon-purple">
+                        <i class="bi bi-person-workspace"></i>
+                    </div>
+                    <div class="metric-info">
+                        <h3>Professores</h3>
+                        <p>@professoresCount</p>
+                    </div>
+                </div>
+            </a>
+
+            <a href="disciplinas" class="text-decoration-none">
+                <div class="metric-card">
+                    <div class="metric-icon metric-icon-green">
+                        <i class="bi bi-book-half"></i>
+                    </div>
+                    <div class="metric-info">
+                        <h3>Disciplinas</h3>
+                        <p>@disciplinasCount</p>
+                    </div>
+                </div>
+            </a>
+
+            <a href="alunos" class="text-decoration-none">
+                <div class="metric-card">
+                    <div class="metric-icon metric-icon-orange">
+                        <i class="bi bi-people-fill"></i>
+                    </div>
+                    <div class="metric-info">
+                        <h3>Alunos</h3>
+                        <p>@alunosCount</p>
+                    </div>
+                </div>
+            </a>
+
+            <a href="matriculas" class="text-decoration-none">
+                <div class="metric-card">
+                    <div class="metric-icon metric-icon-rose">
+                        <i class="bi bi-card-checklist"></i>
+                    </div>
+                    <div class="metric-info">
+                        <h3>Matrículas</h3>
+                        <p>@matriculasCount</p>
+                    </div>
+                </div>
+            </a>
+        </div>
+
+        <div class="row mt-4">
+            <div class="col-md-6">
+                <div class="card-premium h-100">
+                    <h3 class="card-title-premium"><i class="bi bi-lightning-charge-fill text-warning"></i> Ações Rápidas</h3>
+                    <div class="d-grid gap-2">
+                        <a href="matriculas/novo" class="btn-premium btn-premium-primary text-start">
+                            <i class="bi bi-plus-circle-fill"></i> Efetuar Nova Matrícula de Aluno
+                        </a>
+                        <a href="alunos/novo" class="btn-premium btn-premium-secondary text-start">
+                            <i class="bi bi-person-plus-fill"></i> Cadastrar Novo Aluno
+                        </a>
+                        <a href="cursos/novo" class="btn-premium btn-premium-secondary text-start">
+                            <i class="bi bi-folder-plus"></i> Registrar Novo Curso Acadêmico
+                        </a>
+                        <a href="professores/novo" class="btn-premium btn-premium-secondary text-start">
+                            <i class="bi bi-person-badge-fill"></i> Cadastrar Novo Professor
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="card-premium h-100">
+                    <h3 class="card-title-premium"><i class="bi bi-info-circle-fill text-info"></i> Resumo do Sistema</h3>
+                    <p>Este sistema implementa as melhores práticas de desenvolvimento em C#:</p>
+                    <ul class="list-unstyled">
+                        <li class="mb-2"><i class="bi bi-check2-circle text-success me-2"></i><strong>C# 12/10.0:</strong> Código moderno com Primary Constructors e Collection Expressions.</li>
+                        <li class="mb-2"><i class="bi bi-check2-circle text-success me-2"></i><strong>Arquitetura Desacoplada:</strong> Frontend Blazor comunica-se com a WebAPI estritamente via HttpClient.</li>
+                        <li class="mb-2"><i class="bi bi-check2-circle text-success me-2"></i><strong>Compartilhamento de Código:</strong> Interfaces de serviços, modelos e contratos mapeados em projeto compartilhado (.Shared).</li>
+                        <li class="mb-2"><i class="bi bi-check2-circle text-success me-2"></i><strong>Banco de Dados Postgres:</strong> Mapeamentos de chaves estrangeiras, índices e restrições únicas com EF Core.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private bool carregando = true;
+    private int cursosCount = 0;
+    private int professoresCount = 0;
+    private int disciplinasCount = 0;
+    private int alunosCount = 0;
+    private int matriculasCount = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var cursos = await CursoService.GetAllAsync();
+            cursosCount = cursos?.Count ?? 0;
+
+            var professores = await ProfessorService.GetAllAsync();
+            professoresCount = professores?.Count ?? 0;
+
+            var disciplinas = await DisciplinaService.GetAllAsync();
+            disciplinasCount = disciplinas?.Count ?? 0;
+
+            var alunos = await AlunoService.GetAllAsync();
+            alunosCount = alunos?.Count ?? 0;
+
+            var matriculas = await MatriculaService.GetAllAsync();
+            matriculasCount = matriculas?.Count ?? 0;
+        }
+        catch (Exception)
+        {
+            // Fail silent or show zero if API is starting up
+        }
+        finally
+        {
+            carregando = false;
+        }
+    }
+}

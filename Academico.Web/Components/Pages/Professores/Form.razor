@@ -1,0 +1,175 @@
+@page "/professores/novo"
+@page "/professores/editar/{id:int}"
+@using Academico.Shared.Entities
+@using Academico.Shared.Services
+@inject IProfessorService ProfessorService
+@inject NavigationManager Navigation
+
+<div class="premium-container fade-in-up">
+    <div class="header-banner">
+        <h1><i class="bi bi-person-workspace"></i> @Title</h1>
+        <p>Preencha as informações para cadastrar ou modificar um professor.</p>
+    </div>
+
+    @if (errorMsg is not null)
+    {
+        <div class="alert alert-danger d-flex align-items-center justify-content-between" role="alert">
+            <div>
+                <i class="bi bi-exclamation-triangle-fill me-2"></i> @errorMsg
+            </div>
+            <button type="button" class="btn-close" @onclick="() => errorMsg = null"></button>
+        </div>
+    }
+
+    <div class="card-premium">
+        @if (professor is null)
+        {
+            <div class="d-flex justify-content-center my-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+            </div>
+        }
+        else
+        {
+            <EditForm Model="professor" OnValidSubmit="Salvar" FormName="ProfessorForm">
+                <DataAnnotationsValidator />
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group-premium">
+                            <label class="form-label-premium" for="nome">Nome Completo</label>
+                            <InputText id="nome" class="form-control-premium" @bind-Value="professor.Nome" placeholder="Ex: Dr. Alan Turing" />
+                            <ValidationMessage For="() => professor.Nome" class="validation-message" />
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group-premium">
+                            <label class="form-label-premium" for="email">E-mail Corporativo</label>
+                            <InputText id="email" type="email" class="form-control-premium" @bind-Value="professor.Email" placeholder="Ex: alanturing@universidade.edu" />
+                            <ValidationMessage For="() => professor.Email" class="validation-message" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group-premium">
+                            <label class="form-label-premium" for="titulacao">Titulação Máxima</label>
+                            <InputSelect id="titulacao" class="form-control-premium" @bind-Value="professor.Titulacao">
+                                <option value="">Selecione...</option>
+                                <option value="Graduado">Graduado</option>
+                                <option value="Especialista">Especialista</option>
+                                <option value="Mestre">Mestre</option>
+                                <option value="Doutor">Doutor</option>
+                                <option value="Pós-Doutor">Pós-Doutor</option>
+                            </InputSelect>
+                            <ValidationMessage For="() => professor.Titulacao" class="validation-message" />
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group-premium">
+                            <label class="form-label-premium" for="dataContratacao">Data de Contratação</label>
+                            <InputDate id="dataContratacao" class="form-control-premium" @bind-Value="professor.DataContratacao" />
+                            <ValidationMessage For="() => professor.DataContratacao" class="validation-message" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-end gap-3 mt-4">
+                    <button type="button" class="btn-premium btn-premium-secondary" @onclick="Voltar">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="btn-premium btn-premium-primary">
+                        <i class="bi bi-save"></i> Salvar
+                    </button>
+                </div>
+            </EditForm>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public int? Id { get; set; }
+
+    private Professor? professor;
+    private string Title => Id.HasValue ? "Editar Professor" : "Novo Professor";
+    private string? errorMsg;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Id.HasValue)
+        {
+            try
+            {
+                var existing = await ProfessorService.GetByIdAsync(Id.Value);
+                if (existing is null)
+                {
+                    errorMsg = "Professor não encontrado.";
+                    professor = new Professor { Nome = "", Email = "", Titulacao = "" };
+                }
+                else
+                {
+                    professor = existing;
+                }
+            }
+            catch (Exception ex)
+            {
+                errorMsg = $"Erro ao carregar professor: {ex.Message}";
+            }
+        }
+        else
+        {
+            professor = new Professor
+            {
+                Nome = "",
+                Email = "",
+                Titulacao = "",
+                DataContratacao = DateOnly.FromDateTime(DateTime.Today)
+            };
+        }
+    }
+
+    private async Task Salvar()
+    {
+        if (professor is null) return;
+
+        try
+        {
+            if (Id.HasValue)
+            {
+                var success = await ProfessorService.UpdateAsync(Id.Value, professor);
+                if (success)
+                {
+                    Navigation.NavigateTo("professores");
+                }
+                else
+                {
+                    errorMsg = "Erro ao atualizar professor. Verifique as informações.";
+                }
+            }
+            else
+            {
+                var created = await ProfessorService.CreateAsync(professor);
+                if (created is not null)
+                {
+                    Navigation.NavigateTo("professores");
+                }
+                else
+                {
+                    errorMsg = "Erro ao cadastrar professor.";
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMsg = $"Erro ao salvar professor: {ex.Message}";
+        }
+    }
+
+    private void Voltar()
+    {
+        Navigation.NavigateTo("professores");
+    }
+}

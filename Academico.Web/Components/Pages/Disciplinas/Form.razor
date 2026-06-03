@@ -1,0 +1,211 @@
+@page "/disciplinas/novo"
+@page "/disciplinas/editar/{id:int}"
+@using Academico.Shared.Entities
+@using Academico.Shared.Services
+@inject IDisciplinaService DisciplinaService
+@inject ICursoService CursoService
+@inject IProfessorService ProfessorService
+@inject NavigationManager Navigation
+
+<div class="premium-container fade-in-up">
+    <div class="header-banner">
+        <h1><i class="bi bi-book-half"></i> @Title</h1>
+        <p>Preencha as informações para gerenciar a disciplina.</p>
+    </div>
+
+    @if (errorMsg is not null)
+    {
+        <div class="alert alert-danger d-flex align-items-center justify-content-between" role="alert">
+            <div>
+                <i class="bi bi-exclamation-triangle-fill me-2"></i> @errorMsg
+            </div>
+            <button type="button" class="btn-close" @onclick="() => errorMsg = null"></button>
+        </div>
+    }
+
+    <div class="card-premium">
+        @if (disciplina is null || cursos is null || professores is null)
+        {
+            <div class="d-flex justify-content-center my-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+            </div>
+        }
+        else
+        {
+            <EditForm Model="disciplina" OnValidSubmit="Salvar" FormName="DisciplinaForm">
+                <DataAnnotationsValidator />
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group-premium">
+                            <label class="form-label-premium" for="nome">Nome da Disciplina</label>
+                            <InputText id="nome" class="form-control-premium" @bind-Value="disciplina.Nome" placeholder="Ex: Programação Orientada a Objetos" />
+                            <ValidationMessage For="() => disciplina.Nome" class="validation-message" />
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-group-premium">
+                            <label class="form-label-premium" for="cargaHoraria">Carga Horária (Horas)</label>
+                            <InputNumber id="cargaHoraria" class="form-control-premium" @bind-Value="disciplina.CargaHoraria" min="1" placeholder="Ex: 80" />
+                            <ValidationMessage For="() => disciplina.CargaHoraria" class="validation-message" />
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-group-premium">
+                            <label class="form-label-premium" for="semestre">Semestre de Oferta</label>
+                            <InputNumber id="semestre" class="form-control-premium" @bind-Value="disciplina.SemestreOferta" min="1" max="12" placeholder="Ex: 3" />
+                            <ValidationMessage For="() => disciplina.SemestreOferta" class="validation-message" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group-premium">
+                            <label class="form-label-premium" for="curso">Curso Vinculado</label>
+                            <InputSelect id="curso" class="form-control-premium" @bind-Value="disciplina.IdCurso">
+                                <option value="0">Selecione um curso...</option>
+                                @foreach (var c in cursos)
+                                {
+                                    <option value="@c.Id">@c.Sigla - @c.Nome</option>
+                                }
+                            </InputSelect>
+                            @if (disciplina.IdCurso == 0)
+                            {
+                                <div class="text-danger small mt-1">Por favor, selecione um curso.</div>
+                            }
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group-premium">
+                            <label class="form-label-premium" for="professor">Professor Responsável</label>
+                            <InputSelect id="professor" class="form-control-premium" @bind-Value="disciplina.IdProfessor">
+                                <option value="0">Selecione um professor...</option>
+                                @foreach (var prof in professores)
+                                {
+                                    <option value="@prof.Id">@prof.Nome (@prof.Titulacao)</option>
+                                }
+                            </InputSelect>
+                            @if (disciplina.IdProfessor == 0)
+                            {
+                                <div class="text-danger small mt-1">Por favor, selecione um professor.</div>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-end gap-3 mt-4">
+                    <button type="button" class="btn-premium btn-premium-secondary" @onclick="Voltar">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="btn-premium btn-premium-primary" disabled="@(disciplina.IdCurso == 0 || disciplina.IdProfessor == 0)">
+                        <i class="bi bi-save"></i> Salvar
+                    </button>
+                </div>
+            </EditForm>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public int? Id { get; set; }
+
+    private Disciplina? disciplina;
+    private List<Curso>? cursos;
+    private List<Professor>? professores;
+    private string Title => Id.HasValue ? "Editar Disciplina" : "Nova Disciplina";
+    private string? errorMsg;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            cursos = await CursoService.GetAllAsync();
+            professores = await ProfessorService.GetAllAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMsg = $"Erro ao carregar dados auxiliares: {ex.Message}";
+            cursos = [];
+            professores = [];
+        }
+
+        if (Id.HasValue)
+        {
+            try
+            {
+                var existing = await DisciplinaService.GetByIdAsync(Id.Value);
+                if (existing is null)
+                {
+                    errorMsg = "Disciplina não encontrada.";
+                    disciplina = new Disciplina { Nome = "" };
+                }
+                else
+                {
+                    disciplina = existing;
+                }
+            }
+            catch (Exception ex)
+            {
+                errorMsg = $"Erro ao carregar disciplina: {ex.Message}";
+            }
+        }
+        else
+        {
+            disciplina = new Disciplina
+            {
+                Nome = "",
+                CargaHoraria = 80,
+                SemestreOferta = 1,
+                IdCurso = 0,
+                IdProfessor = 0
+            };
+        }
+    }
+
+    private async Task Salvar()
+    {
+        if (disciplina is null) return;
+        if (disciplina.IdCurso == 0 || disciplina.IdProfessor == 0) return;
+
+        try
+        {
+            if (Id.HasValue)
+            {
+                var success = await DisciplinaService.UpdateAsync(Id.Value, disciplina);
+                if (success)
+                {
+                    Navigation.NavigateTo("disciplinas");
+                }
+                else
+                {
+                    errorMsg = "Erro ao atualizar disciplina. Verifique as informações.";
+                }
+            }
+            else
+            {
+                var created = await DisciplinaService.CreateAsync(disciplina);
+                if (created is not null)
+                {
+                    Navigation.NavigateTo("disciplinas");
+                }
+                else
+                {
+                    errorMsg = "Erro ao cadastrar disciplina.";
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMsg = $"Erro ao salvar disciplina: {ex.Message}";
+        }
+    }
+
+    private void Voltar()
+    {
+        Navigation.NavigateTo("disciplinas");
+    }
+}
